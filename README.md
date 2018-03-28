@@ -1,2 +1,0 @@
-# simple-ftp
-simple ftp
