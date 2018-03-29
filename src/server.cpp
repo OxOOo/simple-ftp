@@ -4,7 +4,7 @@
 #include <plog/Log.h>
 #include <cstdlib>
 
-#define PROCESSES 1
+#define PROCESSES 8
 #define MAX_EVENTS 1024 // 每个进程最多同时处理的事件数量,基于poll
 #define BASE_PATH "../repo"
 
