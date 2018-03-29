@@ -1,5 +1,23 @@
 #include "tools.h"
+#include <plog/Log.h>
 #include <cstring>
+#include <sys/types.h>
+#include <dirent.h>
+#include <sys/stat.h>
+#include <unistd.h>
+#include <algorithm>
+
+string trim(string str)
+{
+    if (str.empty())
+    {
+        return str;
+    }
+
+    str.erase(0, str.find_first_not_of(" "));
+    str.erase(str.find_last_not_of(" ") + 1);
+    return str;
+}
 
 vector<string> split(const string &str, const string &pattern)
 {
@@ -19,14 +37,98 @@ vector<string> split(const string &str, const string &pattern)
     return resultVec;
 }
 
-string trim(string str)
+vector<string> trim(vector<string> strs)
 {
-    if (str.empty())
+    for(auto&x : strs) x = trim(x);
+    return strs;
+}
+
+vector<string> clean(vector<string> strs)
+{
+    int size = 0;
+    for(int i = 0; i < (int)strs.size(); i ++)
+        if (strs[i].length() != 0)
+            strs[size++] = strs[i];
+    return strs;
+}
+
+
+string path_join(string a, string b)
+{
+    if (a[a.length()-1] == '/') a = a.substr(0, a.length()-1);
+    if (b[0] == '/') b = b.substr(1);
+    if (b[b.length()-1] == '/') b = b.substr(0, b.length()-1);
+    return a + "/" + b;
+}
+
+string path_join(const string& base_path, const vector<string>& path)
+{
+    string final_path = base_path;
+    for(const auto& x : path)
     {
-        return str;
+        final_path = path_join(final_path, x);
     }
 
-    str.erase(0, str.find_first_not_of(" "));
-    str.erase(str.find_last_not_of(" ") + 1);
-    return str;
+    return final_path;
+}
+
+string path_join(const string& base_path, const vector<string>& path, const string& step)
+{
+    return path_join(path_join(base_path, path), step);
+}
+
+vector<Entry> listdir(const string& base_path, const vector<string>& path)
+{
+    string final_path = path_join(base_path, path);
+    
+    vector<Entry> rst;
+    DIR* dir = opendir(final_path.c_str());
+    if (dir == NULL) return rst;
+
+    struct dirent* ptr;
+    while((ptr = readdir(dir)) != NULL)
+    {
+        if (ptr->d_type & (DT_REG | DT_DIR))
+        {
+            Entry e;
+            e.name = ptr->d_name;
+            e.is_file = ptr->d_type & DT_REG;
+            e.is_dir = ptr->d_type & DT_DIR;
+            rst.push_back(e);
+        }
+    }
+
+    closedir(dir);
+
+    sort(rst.begin(), rst.end(), [](const Entry& a, const Entry& b) {
+        return a.name < b.name;
+    });
+
+    return rst;
+}
+
+int mkdir(const string& final_path)
+{
+    return mkdir(final_path.c_str(), 0775);
+}
+
+bool is_dir(const string& final_path)
+{
+    struct stat buf;
+    if (stat(final_path.c_str(), &buf) < 0) return false;
+    return buf.st_mode & S_IFDIR;
+}
+
+bool is_file(const string& final_path)
+{
+    struct stat buf;
+    if (stat(final_path.c_str(), &buf) < 0) return false;
+    return buf.st_mode & S_IFREG;
+}
+
+bool is_exists(const string& final_path)
+{
+    struct stat buf;
+    if (stat(final_path.c_str(), &buf) < 0) return false;
+    return true;
 }

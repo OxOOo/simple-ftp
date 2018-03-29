@@ -6,6 +6,7 @@
 
 #define PROCESSES 1
 #define MAX_EVENTS 1024 // 每个进程最多同时处理的事件数量,基于poll
+#define BASE_PATH "../repo"
 
 Server::Server()
 {
@@ -26,8 +27,9 @@ void Server::Loop()
 
     while(1)
     {
-        pid_t pid = Wait(NULL);
-        LOG_ERROR << "pid=" << pid << " exit";
+        int status;
+        pid_t pid = Wait(&status);
+        LOG_ERROR << "pid=" << pid << " exit with status = " << status;
         Fork();
     }
 }
@@ -52,15 +54,14 @@ void Server::Fork()
 
 void Server::Progress()
 {
-    struct pollfd *fds = (struct pollfd *)Malloc(sizeof(struct pollfd)*MAX_EVENTS);
+    struct pollfd* fds = (struct pollfd *)Malloc(sizeof(struct pollfd)*MAX_EVENTS);
     Connection *socks = new Connection[MAX_EVENTS];
     for(int i = 0; i < MAX_EVENTS; i ++)
     {
         fds[i].fd = -1;
         fds[i].events = fds[i].revents = 0;
     }
-    struct sockaddr *cliaddr = (struct sockaddr *)Malloc(addrlen);
-    socklen_t clilen;
+    struct sockaddr* cliaddr = (struct sockaddr*)Malloc(addrlen);
 
     fds[0].fd = listenfd;
 
@@ -76,12 +77,15 @@ void Server::Progress()
 
         if (fds[0].revents & POLLRDNORM)
         {
-            int connfd = Accept(listenfd, cliaddr, &clilen);
+            socklen_t clilen = addrlen;
+            bzero(cliaddr, addrlen);
+            int connfd = Accept(listenfd, (SA*)cliaddr, &clilen);
+
             int pos = -1;
             for(pos = 1; fds[pos].fd >= 0; pos ++);
             fds[pos].fd = connfd;
             fds[pos].events = POLLRDNORM;
-            socks[pos].Init(connfd);
+            socks[pos].Init(connfd, BASE_PATH);
             if (maxi < pos) maxi = pos;
             emptys --;
             LOG_DEBUG << "new connection fd = " << connfd << " pos = " << pos;
