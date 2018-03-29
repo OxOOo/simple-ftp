@@ -4,7 +4,7 @@
 #include <plog/Log.h>
 #include <cstdlib>
 
-#define PROCESSES 4
+#define PROCESSES 1
 #define MAX_EVENTS 1024 // 每个进程最多同时处理的事件数量,基于poll
 #define BASE_PATH "../repo"
 
@@ -120,6 +120,7 @@ void Server::Progress()
                 {
                     LOG_DEBUG << "disconnect fd = " << fds[i].fd << " pos = " << i;
                     Close(fds[i].fd);
+                    socks[i].Disconnect();
                     fds[i].fd = -1; // 删除链接
                     emptys ++;
                 } else {

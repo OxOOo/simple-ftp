@@ -17,6 +17,8 @@ public:
 
     void Init(int connfd, const string& base_path, bool cli_enable); // 初始化
 
+    void Disconnect(); // 断开链接
+
     void Trigger(bool case_by_read); // 触发响应
 
     void CLI(); // 输出命令行信息
@@ -36,7 +38,8 @@ private:
     vector<string> path;
 
     FILE* fd_to_send; // 要发送的文件描述符
-    bool close_after_sent;
+    bool close_after_sent; // 是否在发送文件完毕之后关闭套接字
+    FILE* fd_to_write; // 接收到数据写入该文件描述符中
 
     map<string, function<void(const vector<string>&)> > hooks;
 
@@ -49,6 +52,7 @@ private:
     void mkdir(const vector<string>& args);
     void cat(const vector<string>& args);
     void recv(const vector<string>& args);
+    void up(const vector<string>& args);
 };
 
 #endif // SIMPLE_FTP_CONNECTION_H

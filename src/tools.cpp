@@ -94,6 +94,7 @@ vector<Entry> listdir(const string& base_path, const vector<string>& path)
             e.name = ptr->d_name;
             e.is_file = ptr->d_type & DT_REG;
             e.is_dir = ptr->d_type & DT_DIR;
+            e.filesize = e.is_file ? filesize(path_join(final_path, e.name)) : 0;
             rst.push_back(e);
         }
     }
@@ -110,6 +111,13 @@ vector<Entry> listdir(const string& base_path, const vector<string>& path)
 int mkdir(const string& final_path)
 {
     return mkdir(final_path.c_str(), 0775);
+}
+
+size_t filesize(const string& final_path)
+{
+    struct stat buf;
+    if (stat(final_path.c_str(), &buf) < 0) return 0;
+    return buf.st_size;
 }
 
 bool is_dir(const string& final_path)

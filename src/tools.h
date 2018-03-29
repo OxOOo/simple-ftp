@@ -18,12 +18,14 @@ string path_join(const string& base_path, const vector<string>& path, const stri
 struct Entry
 {
     string name;
+    size_t filesize;
     bool is_file;
-    bool is_dir;  
+    bool is_dir;
 };
 vector<Entry> listdir(const string& base_path, const vector<string>& path);
 
 int mkdir(const string& final_path);
+size_t filesize(const string& final_path);
 
 bool is_dir(const string& final_path);
 bool is_file(const string& final_path);

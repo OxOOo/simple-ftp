@@ -13,14 +13,12 @@ Connection::Connection()
     hooks["mkdir"] = bind(&Connection::mkdir, this, std::placeholders::_1);
     hooks["cat"] = bind(&Connection::cat, this, std::placeholders::_1);
     hooks["recv"] = bind(&Connection::recv, this, std::placeholders::_1);
-
-    fd_to_send = NULL;
+    hooks["up"] = bind(&Connection::up, this, std::placeholders::_1);
 }
 
 Connection::~Connection()
 {
     delete[] buf;
-    if (fd_to_send != NULL) fclose(fd_to_send);
 }
 
 void Connection::Init(int connfd, const string& base_path, bool cli_enable) // 初始化
@@ -32,11 +30,19 @@ void Connection::Init(int connfd, const string& base_path, bool cli_enable) // �
     pos = 0;
     path.clear();
 
-    if (fd_to_send != NULL) fclose(fd_to_send);
     fd_to_send = NULL;
     close_after_sent = false;
+    fd_to_write = NULL;
     
     CLI();
+}
+
+void Connection::Disconnect()
+{
+    if (fd_to_send != NULL) fclose(fd_to_send);
+    fd_to_send = NULL;
+    if (fd_to_write != NULL) fclose(fd_to_write);
+    fd_to_write = NULL;
 }
 
 void Connection::Trigger(bool case_by_read)
@@ -65,7 +71,7 @@ void Connection::Trigger(bool case_by_read)
         {
             pos += n;
 
-            while(true)
+            while(fd_to_write == NULL) // 当有文件要写入的时候不解析命令行
             {
                 int newline = -1;
                 for(newline = 0; newline < pos && buf[newline] != '\n'; newline ++);
@@ -75,6 +81,11 @@ void Connection::Trigger(bool case_by_read)
                 memcpy(buf, buf + newline + 1, pos - newline - 1);
                 pos -= newline + 1;
             }
+        }
+        if (fd_to_write != NULL)
+        {
+            fwrite(buf, sizeof(char), pos, fd_to_write);
+            pos = 0;
         }
     } else {
         if (fd_to_send == NULL)
@@ -170,7 +181,7 @@ void Connection::ls(const vector<string>& args)
     {
         if (x.is_file)
         {
-            Writeln("[F] " + x.name);
+            Writeln("[F] " + x.name + " " + to_string(x.filesize));
         } else {
             if (path.size() > 0 || x.name != "..") Writeln("[D] " + x.name);
         }
@@ -245,5 +256,22 @@ void Connection::recv(const vector<string>& args)
             is_end = 1;
         }
         close_after_sent = true;
+    }
+}
+
+void Connection::up(const vector<string>& args)
+{
+    if (args.size() != 2) {
+        Writeln("error : up takes exactly 1 argument");
+    } else {
+        string final_path = path_join(base_path, path, args[1]); // FIXME path check
+        fd_to_write = fopen(final_path.c_str(), "wb");
+        if (fd_to_write == NULL)
+        {
+            Writeln("error : can not open file '" + args[1] + "'");
+            is_end = 1;
+        } else {
+            Writeln("ready to recv file");
+        }
     }
 }
