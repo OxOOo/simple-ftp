@@ -13,7 +13,7 @@ public:
 
 private:
     socklen_t addrlen;
-    int listenfd;
+    int listenfd0, listenfd1;
 
     void Fork();
     void Progress();

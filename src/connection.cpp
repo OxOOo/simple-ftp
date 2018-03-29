@@ -11,63 +11,97 @@ Connection::Connection()
     hooks["ls"] = bind(&Connection::ls, this, std::placeholders::_1);
     hooks["cd"] = bind(&Connection::cd, this, std::placeholders::_1);
     hooks["mkdir"] = bind(&Connection::mkdir, this, std::placeholders::_1);
+    hooks["cat"] = bind(&Connection::cat, this, std::placeholders::_1);
+    hooks["recv"] = bind(&Connection::recv, this, std::placeholders::_1);
+
+    fd_to_send = NULL;
 }
 
 Connection::~Connection()
 {
     delete[] buf;
+    if (fd_to_send != NULL) fclose(fd_to_send);
 }
 
-void Connection::Init(int connfd, const string& base_path) // 初始化
+void Connection::Init(int connfd, const string& base_path, bool cli_enable) // 初始化
 {
     this->connfd = connfd;
     this->base_path = base_path;
+    this->cli_enable = cli_enable;
     is_end = 0;
     pos = 0;
     path.clear();
+
+    if (fd_to_send != NULL) fclose(fd_to_send);
+    fd_to_send = NULL;
+    close_after_sent = false;
     
     CLI();
 }
 
-void Connection::Trigger()
+void Connection::Trigger(bool case_by_read)
 {
-    if(pos == BUFFSIZE) // 缓存空间检查
+    if (case_by_read)
     {
-        LOG_FATAL << "full buffer";
-        is_end = 1;
-        Writeln("error : full buffer");
-        return;
-    }
+        if(pos == BUFFSIZE) // 缓存空间检查
+        {
+            LOG_FATAL << "full buffer";
+            is_end = 1;
+            Writeln("error : full buffer");
+            return;
+        }
 
-    ssize_t n = read(connfd, buf+pos, BUFFSIZE-pos);
-    if (n < 0)
-    {
-        if (errno == ECONNRESET)
+        ssize_t n = read(connfd, buf+pos, BUFFSIZE-pos);
+        if (n < 0)
+        {
+            if (errno == ECONNRESET)
+            {
+                is_end = 1;
+            } else LOG_ERROR << "read error";
+        } else if (n == 0)
         {
             is_end = 1;
-        } else LOG_ERROR << "read error";
-    } else if (n == 0)
-    {
-        is_end = 1;
-    } else
-    {
-        pos += n;
-
-        while(true)
+        } else
         {
-            int newline = -1;
-            for(newline = 0; newline < pos && buf[newline] != '\n'; newline ++);
-            if (newline >= pos) break;
-            Handle(buf, buf + newline);
-            CLI();
-            memcpy(buf, buf + newline + 1, pos - newline - 1);
-            pos -= newline + 1;
+            pos += n;
+
+            while(true)
+            {
+                int newline = -1;
+                for(newline = 0; newline < pos && buf[newline] != '\n'; newline ++);
+                if (newline >= pos) break;
+                Handle(buf, buf + newline);
+                if (!MoreDataToWrite()) CLI();
+                memcpy(buf, buf + newline + 1, pos - newline - 1);
+                pos -= newline + 1;
+            }
         }
+    } else {
+        if (fd_to_send == NULL)
+        {
+            LOG_FATAL << "nothing to write";
+            is_end = 1;
+            Writeln("error : nothing to write");
+            return;
+        }
+        char* buffer = new char[BUFFSIZE];
+        size_t n;
+        if ((n = fread(buffer, sizeof(char), BUFFSIZE, fd_to_send)) <= 0)
+        {
+            fclose(fd_to_send);
+            fd_to_send = NULL;
+            CLI();
+            if (close_after_sent) is_end = 1;
+        } else {
+            ::Write(connfd, buffer, n);
+        }
+        delete[] buffer;
     }
 }
 
 void Connection::CLI()
 {
+    if (!cli_enable) return;
     for(const auto& x : path)
     {
         Write("/");
@@ -81,6 +115,16 @@ void Connection::CLI()
 bool Connection::IsEnd()
 {
     return is_end;
+}
+
+bool Connection::ReadyToRead()
+{
+    return fd_to_send == NULL;
+}
+
+bool Connection::MoreDataToWrite()
+{
+    return fd_to_send != NULL;
 }
 
 void Connection::Handle(const char* s, const char* t)
@@ -101,8 +145,6 @@ void Connection::Handle(const char* s, const char* t)
             hooks.at(args[0])(args);
         }
     }
-
-    // FIXME something
 }
 
 void Connection::Write(const string& str)
@@ -171,6 +213,37 @@ void Connection::mkdir(const vector<string>& args)
     if (args.size() != 2) {
         Writeln("error : mkdir takes exactly 1 argument");
     } else {
-        ::mkdir(path_join(base_path, path, args[1]));
+        if (!is_exists(path_join(base_path, path, args[1])))
+        {
+            ::mkdir(path_join(base_path, path, args[1]));
+        }
+    }
+}
+
+void Connection::cat(const vector<string>& args)
+{
+    if (args.size() != 2) {
+        Writeln("error : cat takes exactly 1 argument");
+    } else {
+        string final_path = path_join(base_path, path, args[1]); // FIXME path check
+        fd_to_send = fopen(final_path.c_str(), "rb");
+        if (fd_to_send == NULL) Writeln("error : can not open file '" + args[1] + "'");
+        close_after_sent = false;
+    }
+}
+
+void Connection::recv(const vector<string>& args)
+{
+    if (args.size() != 2) {
+        Writeln("error : recv takes exactly 1 argument");
+    } else {
+        string final_path = path_join(base_path, path, args[1]); // FIXME path check
+        fd_to_send = fopen(final_path.c_str(), "rb");
+        if (fd_to_send == NULL)
+        {
+            Writeln("error : can not open file '" + args[1] + "'");
+            is_end = 1;
+        }
+        close_after_sent = true;
     }
 }
