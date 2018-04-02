@@ -21,6 +21,8 @@ public:
 
     void Trigger(bool case_by_read); // 触发响应
 
+    void Banner(); // 显示欢迎信息
+
     void CLI(); // 输出命令行信息
 
     bool IsEnd(); // 是否链接断开
@@ -50,9 +52,12 @@ private:
     void ls(const vector<string>& args);
     void cd(const vector<string>& args);
     void mkdir(const vector<string>& args);
+    void rm(const vector<string>& args);
+    void rmdir(const vector<string>& args);
     void cat(const vector<string>& args);
     void recv(const vector<string>& args);
     void up(const vector<string>& args);
+    void help(const vector<string>& args);
 };
 
 #endif // SIMPLE_FTP_CONNECTION_H

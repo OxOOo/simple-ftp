@@ -11,9 +11,12 @@ Connection::Connection()
     hooks["ls"] = bind(&Connection::ls, this, std::placeholders::_1);
     hooks["cd"] = bind(&Connection::cd, this, std::placeholders::_1);
     hooks["mkdir"] = bind(&Connection::mkdir, this, std::placeholders::_1);
+    hooks["rm"] = bind(&Connection::rm, this, std::placeholders::_1);
+    hooks["rmdir"] = bind(&Connection::rmdir, this, std::placeholders::_1);
     hooks["cat"] = bind(&Connection::cat, this, std::placeholders::_1);
     hooks["recv"] = bind(&Connection::recv, this, std::placeholders::_1);
     hooks["up"] = bind(&Connection::up, this, std::placeholders::_1);
+    hooks["help"] = bind(&Connection::help, this, std::placeholders::_1);
 }
 
 Connection::~Connection()
@@ -34,6 +37,7 @@ void Connection::Init(int connfd, const string& base_path, bool cli_enable) // �
     close_after_sent = false;
     fd_to_write = NULL;
     
+    Banner();
     CLI();
 }
 
@@ -43,6 +47,12 @@ void Connection::Disconnect()
     fd_to_send = NULL;
     if (fd_to_write != NULL) fclose(fd_to_write);
     fd_to_write = NULL;
+}
+
+void Connection::Banner()
+{
+    Writeln("欢迎来到 simple-ftp");
+    Writeln("输入help获取帮助信息");
 }
 
 void Connection::Trigger(bool case_by_read)
@@ -250,6 +260,56 @@ void Connection::mkdir(const vector<string>& args)
     }
 }
 
+void Connection::rm(const vector<string>& args)
+{
+    if (args.size() != 2) {
+        Writeln("error : rm takes exactly 1 argument");
+    } else {
+        vector<string> new_path;
+        new_path = path;
+        new_path.push_back(args[1]);
+
+        if (!is_path_acceptable(new_path))
+        {
+            Writeln("error : path is not acceptable");
+            return;
+        }
+
+        if (is_file(path_join(base_path, new_path))) // 文件存在
+        {
+            ::rm(path_join(base_path, new_path));
+        } else {
+            Writeln("error : path does not exists or path is not a file");
+            return;
+        }
+    }
+}
+
+void Connection::rmdir(const vector<string>& args)
+{
+    if (args.size() != 2) {
+        Writeln("error : rmdir takes exactly 1 argument");
+    } else {
+        vector<string> new_path;
+        new_path = path;
+        new_path.push_back(args[1]);
+
+        if (!is_path_acceptable(new_path))
+        {
+            Writeln("error : path is not acceptable");
+            return;
+        }
+
+        if (is_dir(path_join(base_path, new_path))) // 目录存在
+        {
+            ::rmdir(path_join(base_path, new_path));
+        } else {
+            Writeln("error : path does not exists or path is not a dir");
+            return;
+        }
+    }
+}
+
 void Connection::cat(const vector<string>& args)
 {
     if (args.size() != 2) {
@@ -344,4 +404,17 @@ void Connection::up(const vector<string>& args)
             Writeln("ready to recv file");
         }
     }
+}
+
+void Connection::help(const vector<string>& args)
+{
+    Writeln("ls : 展示当前目录下的文件");
+    Writeln("cd path : 切换目录");
+    Writeln("mkdir path : 创建目录");
+    Writeln("rm path : 删除文件");
+    Writeln("rmdir path : 递归删除目录");
+    Writeln("cat path : 输出文件内容");
+    Writeln("recv path : 输出文件内容,并且输出完毕之后关闭链接");
+    Writeln("up path : 上传文件到path中");
+    Writeln("help : 显示帮助文档");
 }

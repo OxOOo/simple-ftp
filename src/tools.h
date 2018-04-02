@@ -24,8 +24,11 @@ struct Entry
     bool is_dir;
 };
 vector<Entry> listdir(const string& base_path, const vector<string>& path);
+vector<Entry> listdir(const string& final_path);
 
 int mkdir(const string& final_path);
+int rm(const string& final_path);
+void rmdir(const string& final_path);
 size_t filesize(const string& final_path);
 
 bool is_dir(const string& final_path);

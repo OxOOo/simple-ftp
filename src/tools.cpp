@@ -95,8 +95,10 @@ bool is_path_acceptable(const vector<string>& path)
 
 vector<Entry> listdir(const string& base_path, const vector<string>& path)
 {
-    string final_path = path_join(base_path, path);
-    
+    return listdir(path_join(base_path, path));
+}
+vector<Entry> listdir(const string& final_path)
+{
     vector<Entry> rst;
     DIR* dir = opendir(final_path.c_str());
     if (dir == NULL) return rst;
@@ -128,7 +130,21 @@ int mkdir(const string& final_path)
 {
     return mkdir(final_path.c_str(), 0775);
 }
-
+int rm(const string& final_path)
+{
+    return unlink(final_path.c_str());
+}
+void rmdir(const string& final_path)
+{
+    vector<Entry> entries = listdir(final_path);
+    for(const auto &x : entries)
+    {
+        if (x.name == "." || x.name == "..") continue;
+        if (x.is_file) rm(path_join(final_path, x.name));
+        else rmdir(path_join(final_path, x.name));
+    }
+    rmdir(final_path.c_str());
+}
 size_t filesize(const string& final_path)
 {
     struct stat buf;
