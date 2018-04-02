@@ -6,6 +6,7 @@
 #include <sys/stat.h>
 #include <unistd.h>
 #include <algorithm>
+#include <stack>
 
 string trim(string str)
 {
@@ -75,6 +76,21 @@ string path_join(const string& base_path, const vector<string>& path)
 string path_join(const string& base_path, const vector<string>& path, const string& step)
 {
     return path_join(path_join(base_path, path), step);
+}
+
+bool is_path_acceptable(const vector<string>& path)
+{
+    stack<string> s;
+    for(const auto& x : path)
+    {
+        for(int i = 0; i < x.length(); i ++)
+            if (x[i] == '/' || x[i] == '\\') // 每个路径节点不允许[/\]
+                return false;
+        if (x == ".") continue;
+        if (x == ".." && s.empty()) return false;
+        if (x == "..") s.pop(); else s.push(x);
+    }
+    return true;
 }
 
 vector<Entry> listdir(const string& base_path, const vector<string>& path)

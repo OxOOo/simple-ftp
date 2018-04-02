@@ -21,6 +21,9 @@ void Server::Loop()
     listenfd0 = Tcp_listen("0.0.0.0", "4000", &addrlen);
     listenfd1 = Tcp_listen("0.0.0.0", "4001", &addrlen);
 
+    // 不处理SIGPIPE信号
+    Signal(SIGPIPE, SIG_IGN);
+
     for (int i = 0; i < PROCESSES; i++)
     {
         Fork();

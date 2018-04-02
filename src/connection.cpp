@@ -71,7 +71,7 @@ void Connection::Trigger(bool case_by_read)
         {
             pos += n;
 
-            while(fd_to_write == NULL) // 当有文件要写入的时候不解析命令行
+            while(fd_to_write == NULL) // 当有文件要写入的时候不解析命令行,否则的话查看当前缓冲区中是否存在\n
             {
                 int newline = -1;
                 for(newline = 0; newline < pos && buf[newline] != '\n'; newline ++);
@@ -172,7 +172,7 @@ void Connection::ls(const vector<string>& args)
 {
     if (args.size() != 1)
     {
-        Writeln("error : ls takes exactly 1 argument");
+        Writeln("error : ls takes exactly 0 argument");
         return;
     }
 
@@ -194,13 +194,13 @@ void Connection::cd(const vector<string>& args)
     {
         path.clear();
     } else if (args.size() == 2) {
-        if (args[1] == "..")
+        if (args[1] == "..") // 移动到上层目录
         {
             if(path.size() > 0) path.pop_back();
-        } else if (args[1] == ".") {
+        } else if (args[1] == ".") { // 不移动
             // nothing
-        } else {
-            vector<string> old_path = path;
+        } else { // 目录切换
+            vector<string> old_path = path; // 备份原目录
             string name = args[1];
             bool is_root = name[0] == '/';
             if (is_root) name = name.substr(1);
@@ -211,11 +211,17 @@ void Connection::cd(const vector<string>& args)
             if (is_root) path = names;
             else for(const auto&x : names) path.push_back(x);
 
-            if (!is_dir(path_join(base_path, path))) path = old_path;
+            if (!is_path_acceptable(path)) { // 如果路径不合法则不切换
+                path = old_path;
+                Writeln("error : path is not acceptable");
+            } else if (!is_dir(path_join(base_path, path))) { // 如果路径不存在则不切换
+                path = old_path;
+                Writeln("error : path is not exists");
+            }
         }
 
     } else {
-        Writeln("error : cd takes 0 or 1 argument(s)");
+        Writeln("error : cd takes 0 or 1 argument");
     }
 }
 
@@ -224,9 +230,22 @@ void Connection::mkdir(const vector<string>& args)
     if (args.size() != 2) {
         Writeln("error : mkdir takes exactly 1 argument");
     } else {
-        if (!is_exists(path_join(base_path, path, args[1])))
+        vector<string> new_path;
+        new_path = path;
+        new_path.push_back(args[1]);
+
+        if (!is_path_acceptable(new_path)) // 如果路径不合法则不创建
         {
-            ::mkdir(path_join(base_path, path, args[1]));
+            Writeln("error : path is not acceptable");
+            return;
+        }
+
+        if (!is_exists(path_join(base_path, new_path))) // 目录不存在则创建
+        {
+            ::mkdir(path_join(base_path, new_path));
+        } else {
+            Writeln("error : path already exists");
+            return;
         }
     }
 }
@@ -236,7 +255,24 @@ void Connection::cat(const vector<string>& args)
     if (args.size() != 2) {
         Writeln("error : cat takes exactly 1 argument");
     } else {
-        string final_path = path_join(base_path, path, args[1]); // FIXME path check
+        vector<string> new_path = path;
+
+        string name = args[1];
+        bool is_root = name[0] == '/';
+        if (is_root) name = name.substr(1);
+        vector<string> names = split(name, "/");
+        names = trim(names);
+        names = clean(names);
+        if (is_root) new_path = names;
+        else for(const auto&x : names) new_path.push_back(x);
+
+        if (!is_path_acceptable(new_path)) // 如果路径不合法
+        {
+            Writeln("error : path is not acceptable");
+            return;
+        }
+
+        string final_path = path_join(base_path, new_path);
         fd_to_send = fopen(final_path.c_str(), "rb");
         if (fd_to_send == NULL) Writeln("error : can not open file '" + args[1] + "'");
         close_after_sent = false;
@@ -248,7 +284,24 @@ void Connection::recv(const vector<string>& args)
     if (args.size() != 2) {
         Writeln("error : recv takes exactly 1 argument");
     } else {
-        string final_path = path_join(base_path, path, args[1]); // FIXME path check
+        vector<string> new_path = path;
+
+        string name = args[1];
+        bool is_root = name[0] == '/';
+        if (is_root) name = name.substr(1);
+        vector<string> names = split(name, "/");
+        names = trim(names);
+        names = clean(names);
+        if (is_root) new_path = names;
+        else for(const auto&x : names) new_path.push_back(x);
+
+        if (!is_path_acceptable(new_path)) // 如果路径不合法
+        {
+            Writeln("error : path is not acceptable");
+            return;
+        }
+
+        string final_path = path_join(base_path, new_path);
         fd_to_send = fopen(final_path.c_str(), "rb");
         if (fd_to_send == NULL)
         {
@@ -264,7 +317,24 @@ void Connection::up(const vector<string>& args)
     if (args.size() != 2) {
         Writeln("error : up takes exactly 1 argument");
     } else {
-        string final_path = path_join(base_path, path, args[1]); // FIXME path check
+        vector<string> new_path = path;
+
+        string name = args[1];
+        bool is_root = name[0] == '/';
+        if (is_root) name = name.substr(1);
+        vector<string> names = split(name, "/");
+        names = trim(names);
+        names = clean(names);
+        if (is_root) new_path = names;
+        else for(const auto&x : names) new_path.push_back(x);
+
+        if (!is_path_acceptable(new_path)) // 如果路径不合法
+        {
+            Writeln("error : path is not acceptable");
+            return;
+        }
+
+        string final_path = path_join(base_path, new_path);
         fd_to_write = fopen(final_path.c_str(), "wb");
         if (fd_to_write == NULL)
         {
