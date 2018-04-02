@@ -49,12 +49,6 @@ void Connection::Disconnect()
     fd_to_write = NULL;
 }
 
-void Connection::Banner()
-{
-    Writeln("欢迎来到 simple-ftp");
-    Writeln("输入help获取帮助信息");
-}
-
 void Connection::Trigger(bool case_by_read)
 {
     if (case_by_read)
@@ -131,6 +125,13 @@ void Connection::CLI()
     if (path.size() == 0) Write("/");
 
     Write("$ ");
+}
+
+void Connection::Banner()
+{
+    if (!cli_enable) return;
+    Writeln("欢迎来到 simple-ftp");
+    Writeln("输入help获取帮助信息");
 }
 
 bool Connection::IsEnd()

@@ -32,7 +32,7 @@ void Server::Loop()
     while(1)
     {
         int status;
-        pid_t pid = Wait(&status);
+        pid_t pid = Waitpid(0, &status, 0);
         LOG_ERROR << "pid=" << pid << " exit with status = " << status;
         Fork();
     }
